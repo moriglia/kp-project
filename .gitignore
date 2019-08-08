@@ -1,0 +1,17 @@
+**/*~
+**/*.gz
+BuildCore/
+TinyFS/
+**/*.out
+**/*.txt
+**/*.log
+**/.tmp_versions/
+**/*.order
+**/*.symvers
+**/.cache.mk
+**/*.ko
+**/*.o
+**/*.cmd
+**/*.mod.c
+user/test
+append_fs/
