@@ -3,6 +3,8 @@
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/delay.h>
+#include <linux/stat.h>
 #include "device.h"
 
 #ifndef VERBOSE
@@ -14,13 +16,10 @@
 static struct miscdevice kp_device;
 
 static int kp_dev_open(struct inode* in, struct file* f){
-  char buf[1024];
 #if VERBOSE
   printk("Opening device");
 #endif
-  sprintf(buf, "File private data is %p\n", f->private_data);
-  printk(buf);
-  f->private_data = NULL;
+  f->private_data = NULL; // otherwise random address
   return 0;
 }
 
@@ -28,11 +27,9 @@ static int kp_dev_release(struct inode* in, struct file* f){
 #if VERBOSE
   printk("Closing device");
 #endif
-  /*
   if ( f->private_data != NULL ){
     kfree( f->private_data );
   }
-  */
   return 0;
 }
 
@@ -61,6 +58,15 @@ static long kp_dev_ioctl(struct file* f, unsigned int cmd, unsigned long arg){
     timeout = f->private_data;
     return *((unsigned long*)timeout);
 
+  case BLOCK:
+    if (!f->private_data) {
+      return -ERR_TIMEOUT_NOT_SET;
+    }
+    timeout = f->private_data;
+    set_current_state(TASK_INTERRUPTIBLE);
+    msleep(*(unsigned long*)timeout);
+    return 0;
+    
   default:
     return -ERR_UNKNOWN_IOCTL_COMMAND;
   }
@@ -74,9 +80,10 @@ static struct file_operations kp_dev_file_operations = {
 };
 
 static struct miscdevice kp_device = {
-  MISC_DYNAMIC_MINOR,
-  "kpdev",
-  &kp_dev_file_operations
+  .minor            = MISC_DYNAMIC_MINOR,
+  .name             = "kpdev",
+  .fops             = &kp_dev_file_operations,
+  .mode             = S_IRWXUGO
 };
 
 

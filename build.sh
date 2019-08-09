@@ -33,6 +33,8 @@ cp user/test append_fs/home/myself/
 echo "#!/bin/sh" > append_fs/home/myself/install_module.sh
 echo "source ./.bashrc" >> append_fs/home/myself/install_module.sh
 echo "insmod /modules/kp.ko" >> append_fs/home/myself/install_module.sh
+echo "sleep 2" >> append_fs/home/myself/install_module.sh
+echo "chmod ugo+rwx /dev/kpdev" >> append_fs/home/myself/install_module.sh
 chmod +x append_fs/home/myself/install_module.sh
 echo "#!/bin/sh" >> append_fs/home/myself/.bashrc
 echo "export PATH=\$PATH:/sbin" >> append_fs/home/myself/.bashrc

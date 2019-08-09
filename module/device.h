@@ -5,7 +5,7 @@
 
 #define WR_VALUE _IOW('k', 's', unsigned long )
 #define RD_VALUE _IOR('k', 'g', void* )
-
+#define BLOCK    _IO ('k', 'b')
 
 /* Error codes */
 #define ERR_NO_KMALLOC                     1
