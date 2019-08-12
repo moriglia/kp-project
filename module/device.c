@@ -6,10 +6,11 @@
 #include <linux/delay.h>
 #include <linux/stat.h>
 #include "device.h"
+#include "periodic.h"
 
-#ifndef VERBOSE
-#define VERBOSE 0
-#endif
+//#ifndef VERBOSE
+#define VERBOSE 1
+//#endif
 
 
 
@@ -19,7 +20,11 @@ static int kp_dev_open(struct inode* in, struct file* f){
 #if VERBOSE
   printk("Opening device");
 #endif
-  f->private_data = NULL; // otherwise random address
+  f->private_data = create_periodic_conf();
+  if (create_thread(f->private_data)) {
+    delete_periodic_conf(f->private_data);
+    return -1;
+  }
   return 0;
 }
 
@@ -27,18 +32,20 @@ static int kp_dev_release(struct inode* in, struct file* f){
 #if VERBOSE
   printk("Closing device");
 #endif
-  if ( f->private_data != NULL ){
-    kfree( f->private_data );
-  }
+  delete_periodic_conf(f->private_data);
+  f->private_data = NULL;
+  printk("Almost closed!");
   return 0;
 }
 
 static long kp_dev_ioctl(struct file* f, unsigned int cmd, unsigned long arg){
-  void *timeout;
+  //void *timeout;
 
   switch (cmd){
 
   case WR_VALUE:
+    return periodic_conf_set_timeout_ms(f->private_data, arg);
+    /*
     if (f->private_data) {
       timeout = f->private_data;
     } else {
@@ -50,21 +57,30 @@ static long kp_dev_ioctl(struct file* f, unsigned int cmd, unsigned long arg){
     }
     *((unsigned long *)timeout) = arg;
     return 0;
+    */
 
   case RD_VALUE:
+    return periodic_conf_get_timeout_ms(f->private_data);
+    /*
     if (!f->private_data) {
       return -ERR_TIMEOUT_NOT_SET;
     }
     timeout = f->private_data;
     return *((unsigned long*)timeout);
-
+    */
   case BLOCK:
     if (!f->private_data) {
-      return -ERR_TIMEOUT_NOT_SET;
+      return -1 ; // handle error
     }
-    timeout = f->private_data;
-    set_current_state(TASK_INTERRUPTIBLE);
-    msleep(*(unsigned long*)timeout);
+    wait_for_timeout(f->private_data);
+    return 0;
+
+  case START:
+    start_cycling(f->private_data);
+    return 0;
+    
+  case STOP:
+    stop_cycling(f->private_data);
     return 0;
     
   default:

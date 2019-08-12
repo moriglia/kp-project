@@ -4,8 +4,10 @@
 #include <linux/ioctl.h>
 
 #define WR_VALUE _IOW('k', 's', unsigned long )
-#define RD_VALUE _IOR('k', 'g', void* )
+#define RD_VALUE _IO ('k', 'g')
 #define BLOCK    _IO ('k', 'b')
+#define START    _IO ('k', 't')
+#define STOP     _IO ('k', 'p')
 
 /* Error codes */
 #define ERR_NO_KMALLOC                     1
