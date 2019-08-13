@@ -8,9 +8,9 @@
 #include "device.h"
 #include "periodic.h"
 
-//#ifndef VERBOSE
-#define VERBOSE 1
-//#endif
+#ifndef VERBOSE
+#define VERBOSE 0
+#endif
 
 
 
@@ -34,40 +34,19 @@ static int kp_dev_release(struct inode* in, struct file* f){
 #endif
   delete_periodic_conf(f->private_data);
   f->private_data = NULL;
-  printk("Almost closed!");
   return 0;
 }
 
 static long kp_dev_ioctl(struct file* f, unsigned int cmd, unsigned long arg){
-  //void *timeout;
 
   switch (cmd){
 
   case WR_VALUE:
     return periodic_conf_set_timeout_ms(f->private_data, arg);
-    /*
-    if (f->private_data) {
-      timeout = f->private_data;
-    } else {
-      timeout = kmalloc(sizeof(unsigned int), GFP_USER);
-      if (!timeout) {
-	return -ERR_NO_KMALLOC;
-      }
-      f->private_data = timeout;
-    }
-    *((unsigned long *)timeout) = arg;
-    return 0;
-    */
 
   case RD_VALUE:
     return periodic_conf_get_timeout_ms(f->private_data);
-    /*
-    if (!f->private_data) {
-      return -ERR_TIMEOUT_NOT_SET;
-    }
-    timeout = f->private_data;
-    return *((unsigned long*)timeout);
-    */
+    
   case BLOCK:
     if (!f->private_data) {
       return -1 ; // handle error

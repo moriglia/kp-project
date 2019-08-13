@@ -6,6 +6,9 @@
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+//#include <linux/sched/signal.h>
+
+#define PRINT_STAT 1
 
 struct periodic_conf {
   unsigned long timeout_ms;
@@ -17,6 +20,7 @@ struct periodic_conf {
   struct task_struct * callback_helper_thread_id;
   bool running;
   struct mutex running_mutex;
+  bool should_stop;
 };
 
 
@@ -36,12 +40,11 @@ int callback_helper_thread(void * pc_ptr){
 
   while(!kthread_should_stop()){
     res = wait_for_completion_interruptible(&pc->timer_elapsed);
-    if (res!=0){
+    if (res!=0 || pc->should_stop){
       return 0;
     }
 
     mutex_lock(&pc->blocked_user_mutex);
-
     if (pc->blocked_user){
       // complete only if blocked user thread is present
       complete(&pc->unblock_ready);
@@ -49,7 +52,7 @@ int callback_helper_thread(void * pc_ptr){
       mutex_unlock(&pc->blocked_user_mutex);
     } else {
       mutex_unlock(&pc->blocked_user_mutex);
-      printk("Missed timeout");
+      printk("Missed timeout!");
     }
   }
 
@@ -81,11 +84,10 @@ int create_thread(struct periodic_conf * pc){
   return 0;
 }
 
-void delete_thread(struct periodic_conf * pc){
-  //if (pc->callback_helper_thread_id){
-    kthread_stop(pc->callback_helper_thread_id);
-    //pc->callback_helper_thread_id = NULL;
-    //}
+void delete_helper_thread(struct periodic_conf * pc){
+  pc->should_stop = true;
+  complete(&pc->timer_elapsed);
+  kthread_stop(pc->callback_helper_thread_id);
 }
 
 void init_periodic_conf(struct periodic_conf * pc){
@@ -100,6 +102,7 @@ void init_periodic_conf(struct periodic_conf * pc){
   pc->callback_helper_thread_id = NULL;
   pc->running = false;
   mutex_init(&pc->running_mutex);
+  pc->should_stop = false;
 }
 
 void * create_periodic_conf(){
@@ -115,7 +118,7 @@ void delete_periodic_conf(struct periodic_conf * pc){
   if (!pc) {
     return;
   }
-  delete_thread(pc);
+  delete_helper_thread(pc);
   kfree(pc);
 }
 
@@ -149,7 +152,6 @@ int stop_cycling(struct periodic_conf * pc){
   
   mutex_lock(&pc->running_mutex);
   if (!pc->running){
-    printk("Not running\n");
     mutex_unlock(&pc->running_mutex);
     return -1;
   }
@@ -167,6 +169,7 @@ int periodic_conf_set_timeout_ms(struct periodic_conf * pc,
   mutex_lock(&pc->running_mutex);
 
   if (pc->running) {
+    mutex_unlock(&pc->running_mutex);
     return -1;
   }
 

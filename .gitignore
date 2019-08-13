@@ -14,4 +14,5 @@ TinyFS/
 **/*.cmd
 **/*.mod.c
 user/test
+user/test2
 append_fs/

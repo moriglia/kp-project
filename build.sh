@@ -28,7 +28,8 @@ mkdir -p append_fs/modules
 mkdir -p append_fs/home/myself
 
 cp module/kp.ko append_fs/modules/
-cp user/test append_fs/home/myself/
+cp user/test  append_fs/home/myself/
+cp user/test2 append_fs/home/myself/
 
 # create install script
 echo "#!/bin/sh" > append_fs/home/myself/install_module.sh
@@ -37,7 +38,7 @@ echo "insmod /modules/kp.ko" >> append_fs/home/myself/install_module.sh
 echo "sleep 2" >> append_fs/home/myself/install_module.sh
 echo "chmod ugo+rwx /dev/kpdev" >> append_fs/home/myself/install_module.sh
 chmod +x append_fs/home/myself/install_module.sh
-echo "#!/bin/sh" >> append_fs/home/myself/.bashrc
+echo "#!/bin/sh" > append_fs/home/myself/.bashrc
 echo "export PATH=\$PATH:/sbin" >> append_fs/home/myself/.bashrc
 chmod +x append_fs/home/myself/.bashrc
 
@@ -53,5 +54,3 @@ qemu-system-x86_64 -kernel $KERNEL_IMAGE \
 		   -accel kvm \
 		   -append "console=tty consle=ttyS0" \
 		   -serial file:log.txt
-
-
