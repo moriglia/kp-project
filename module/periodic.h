@@ -3,7 +3,7 @@
 
 struct periodic_conf;
 
-void wait_for_timeout(struct periodic_conf *);
+int wait_for_timeout(struct periodic_conf *);
 int create_thread(struct periodic_conf *);
 void delete_helper_thread(struct periodic_conf *);
 void * create_periodic_conf(void);

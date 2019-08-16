@@ -23,7 +23,16 @@ struct periodic_conf {
   bool should_stop;
 };
 
-
+/* quick_periodic_callback() - callback handler for timer
+ *
+ * Restarts (postpones) the timer and unblocks the 
+ * callback helper thread
+ *
+ * Note: the operations done in `callback_helper_thread()`
+ * could not be done in this callback handler because 
+ * they involved acquiring a mutex, which is not allowed 
+ * in this context
+ */
 void quick_periodic_callback(struct timer_list * pc_ptr){
   struct periodic_conf * pc;
   pc = container_of(pc_ptr, struct periodic_conf, tl);
@@ -33,6 +42,14 @@ void quick_periodic_callback(struct timer_list * pc_ptr){
   complete(&pc->timer_elapsed);
 }
 
+/* callback_helper_thread() - code for the thread that wakes up the user process
+ * 
+ * This thread checks whether there is a user process blocked every time it 
+ * gets woken up itself, then possibly unblocks it.
+ * 
+ * See note on `quick_periodic_callback()` for the reason for not including
+ * the code below in the callback itself.
+ */
 int callback_helper_thread(void * pc_ptr){
   struct periodic_conf * pc;
   int res;
@@ -60,12 +77,24 @@ int callback_helper_thread(void * pc_ptr){
 
 }
 
-void wait_for_timeout(struct periodic_conf * pc){
+/* wait_for_timeout() - blocks until timer elapses
+ *
+ * Sets signals that the user application is blocked and blocks
+ */
+int wait_for_timeout(struct periodic_conf * pc){
+  if (!pc)
+    return -1;
+
+  if (!pc->running)
+    return -2;
+  
   mutex_lock(&pc->blocked_user_mutex);
   pc->blocked_user = true;
   mutex_unlock(&pc->blocked_user_mutex);
 
   wait_for_completion_interruptible(&pc->unblock_ready);
+
+  return 0;
 }
 
 
@@ -122,19 +151,19 @@ void delete_periodic_conf(struct periodic_conf * pc){
   kfree(pc);
 }
 
-
+// start_cycling() - activate the timer
 int start_cycling(struct periodic_conf * pc){
   if (!pc) return -1;
   
   mutex_lock(&pc->running_mutex);
   if (pc->running){
     mutex_unlock(&pc->running_mutex);
-    return -1;
+    return -2;
   }
 
   if (pc->timeout_ms == 0){
     mutex_unlock(&pc->running_mutex);
-    return -1;
+    return -3;
   }
 
   timer_setup(&pc->tl, quick_periodic_callback, 0);
@@ -146,14 +175,14 @@ int start_cycling(struct periodic_conf * pc){
   return 0;
 }
 
-
+// stop_cycling() - stop the timer
 int stop_cycling(struct periodic_conf * pc){
   if (! pc) return -1;
   
   mutex_lock(&pc->running_mutex);
   if (!pc->running){
     mutex_unlock(&pc->running_mutex);
-    return -1;
+    return -2;
   }
 
   del_timer(&pc->tl);
@@ -163,14 +192,20 @@ int stop_cycling(struct periodic_conf * pc){
   return 0;
 }
 
-
+/* periodic_conf_set_timeout_ms() - sets the timeout value */
 int periodic_conf_set_timeout_ms(struct periodic_conf * pc,
 				 unsigned long tms){
+  if (!pc)
+    return -1;
+
+  if (tms == 0)
+    return -2;
+  
   mutex_lock(&pc->running_mutex);
 
   if (pc->running) {
     mutex_unlock(&pc->running_mutex);
-    return -1;
+    return -3;
   }
 
   pc->timeout_ms = tms;
@@ -179,6 +214,7 @@ int periodic_conf_set_timeout_ms(struct periodic_conf * pc,
   return 0;
 }
 
+/* periodic_conf_get_timeout_ms() - gets the timeout value */
 unsigned long periodic_conf_get_timeout_ms(struct periodic_conf * pc){
   if (! pc) return 0;
 

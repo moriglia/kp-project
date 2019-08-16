@@ -23,10 +23,10 @@ int main(void){
   }
 
   timeout = 10UL;
-  retval = ioctl(fd, WR_VALUE, timeout);
+  retval = ioctl(fd, TIMEOUT_SET, timeout);
   printf("Return value of ioctl() call with set is %d\n", retval);
 
-  retval = ioctl(fd, RD_VALUE, NULL);
+  retval = ioctl(fd, TIMEOUT_GET, NULL);
   printf("Return value of ioctl() call with get is %d\n", retval);
 
   retval = ioctl(fd, START);

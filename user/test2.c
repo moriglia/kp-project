@@ -23,15 +23,15 @@
   (long int)(time1.tv_usec - time2.tv_usec) +		\
   1000000 * (long int)(time1.tv_sec - time2.tv_sec)
 
-#define scream_like_a_barbagianni( n , tmp , time1 , time2 )	\
-  do {								\
-    gettimeofday(&time1 , NULL);				\
-    tmp = n;							\
-    printf("Iterations remaining %d\tDelay = %ldus\n",		\
-	   n - 1, evaluate_delta( time1 , time2 ) );		\
+#define do_something( n , tmp , time1 , time2 )				\
+  do {									\
+    gettimeofday(&time1 , NULL);					\
+    tmp = n;								\
+    printf("Iterations remaining %d\tDelay = %ldus\n",			\
+	   n - 1, evaluate_delta( time1 , time2 ) );			\
     for ( ; tmp > 0 ; ) printf( "[%d] " , tmp-- );			\
-    printf("\n");						\
-    time2 = time1 ;						\
+    printf("\n");							\
+    time2 = time1 ;							\
   } while (0)
 
 int main(int argc, char ** argv) {
@@ -64,7 +64,7 @@ int main(int argc, char ** argv) {
 
   // setting timer:
   printf("Setting timer to %d\n", timeout);
-  res = ioctl(fd, WR_VALUE, timeout);
+  res = ioctl(fd, TIMEOUT_SET, timeout);
   if ( res == -1 ) {
     printf("Timer not set!\n");
     return 0;
@@ -78,7 +78,7 @@ int main(int argc, char ** argv) {
     ioctl(fd, BLOCK);
 
     /* do some operatios */
-    scream_like_a_barbagianni(iterations, res, t1, t2);
+    do_something(iterations, res, t1, t2);
   }
 
   ioctl(fd, STOP);
