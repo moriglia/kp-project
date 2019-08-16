@@ -4,9 +4,15 @@ This project is a Linux Kernel Module that allows a process to wake up periodica
 
 ## Build the project
 ```bash
-./build.sh [linux-build-directory]
+./build.sh [linux-build-directory [basic-filesystem]]
 ```
-If the `linux-build-directory` is not specified ``/lib/modules/`uname -r`/build`` will be used.
+If the `linux-build-directory` is not specified,
+``/lib/modules/`uname -r`/build`` will be used.
+
+If `basic-filsystem` is not specified, `TinyFS/tinyfs.gz` will be used.
+
+Note that the 2 must be in order. So to specify the second,
+the first must be specified as well.
 
 ## Clean the project
 ```bash
@@ -30,7 +36,7 @@ The `test` program opens `/dev/kpdev` device, then uses `ioctl()` to set the tim
 ```bash
 ./test2 [timeout-milliseconds [iteration-cunt]]
 ```
-This program opens the `/dev/kpdev` device. Then calls `ioctl()` multiple times to set a timeout, start the timer and block. The timer will wake up the process at (almost) periodical intervals. (An overhead of about or more then 1 ms is observed).
+This program opens the `/dev/kpdev` device. Then calls `ioctl()` multiple times to set a timeout, start the timer and block. The timer will wake up the process at (almost) periodical intervals. (An overhead of about or more than 1 ms is observed).
 
 ## Internal operation
 
