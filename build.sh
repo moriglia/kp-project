@@ -68,7 +68,7 @@ else
 fi
 
 if [ -e $initramfs ] ; then
-    cat TinyFS/tinyfs.gz append_fs/append_fs.gz > fs.gz ;
+    cat $initramfs append_fs/append_fs.gz > fs.gz ;
 
     # boot the machine
     qemu-system-x86_64 -kernel $KERNEL_IMAGE \
