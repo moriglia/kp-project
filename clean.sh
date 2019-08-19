@@ -17,4 +17,5 @@ fi;
 cd ..
 
 rm -rf append_fs/
+rm -f  module.out user.out fs.gz log.txt
 
