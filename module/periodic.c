@@ -3,6 +3,7 @@
 #include <linux/jiffies.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
+#include <linux/spinlock_types.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
@@ -13,68 +14,33 @@
 struct periodic_conf {
   unsigned long timeout_ms;
   struct timer_list tl;
-  struct completion timer_elapsed;
+  //struct completion timer_elapsed;
   struct completion unblock_ready;
   bool blocked_user;
-  struct mutex blocked_user_mutex;
-  struct task_struct * callback_helper_thread_id;
+  spinlock_t blocked_user_lock;
+  //struct task_struct * callback_helper_thread_id;
   bool running;
   struct mutex running_mutex;
-  bool should_stop;
 };
 
-/* quick_periodic_callback() - callback handler for timer
- *
- * Restarts (postpones) the timer and unblocks the 
- * callback helper thread
- *
- * Note: the operations done in `callback_helper_thread()`
- * could not be done in this callback handler because 
- * they involved acquiring a mutex, which is not allowed 
- * in this context
+/* timer_hard_isr() - callback handler for timer
  */
-void quick_periodic_callback(struct timer_list * pc_ptr){
+void timer_hard_isr(struct timer_list * pc_ptr){
   struct periodic_conf * pc;
   pc = container_of(pc_ptr, struct periodic_conf, tl);
 
   mod_timer(pc_ptr, jiffies + msecs_to_jiffies(pc->timeout_ms));
-  
-  complete(&pc->timer_elapsed);
-}
 
-/* callback_helper_thread() - code for the thread that wakes up the user process
- * 
- * This thread checks whether there is a user process blocked every time it 
- * gets woken up itself, then possibly unblocks it.
- * 
- * See note on `quick_periodic_callback()` for the reason for not including
- * the code below in the callback itself.
- */
-int callback_helper_thread(void * pc_ptr){
-  struct periodic_conf * pc;
-  int res;
-  pc = (struct periodic_conf*) pc_ptr;
-
-  while(!kthread_should_stop()){
-    res = wait_for_completion_interruptible(&pc->timer_elapsed);
-    if (res!=0 || pc->should_stop){
-      return 0;
-    }
-
-    mutex_lock(&pc->blocked_user_mutex);
-    if (pc->blocked_user){
-      // complete only if blocked user thread is present
-      complete(&pc->unblock_ready);
-      pc->blocked_user = false;
-      mutex_unlock(&pc->blocked_user_mutex);
-    } else {
-      mutex_unlock(&pc->blocked_user_mutex);
-      printk("Missed timeout!");
-    }
+  spin_lock_irq(&blocked_user_lock);
+  if (pc->blocked_user){
+    // complete only if blocked user thread is present
+    complete(&pc->unblock_ready);
+    pc->blocked_user = false;
+    spin_unlock_irq(&pc->blocked_user_lock);
+  } else {
+    spin_unlock_irq(&pc->blocked_user_lock);
+    printk("Missed timeout!");
   }
-
-  return 0;
-
 }
 
 /* wait_for_timeout() - blocks until timer elapses
@@ -88,35 +54,13 @@ int wait_for_timeout(struct periodic_conf * pc){
   if (!pc->running)
     return -2;
   
-  mutex_lock(&pc->blocked_user_mutex);
+  spin_lock(&pc->blocked_user_lock);
   pc->blocked_user = true;
-  mutex_unlock(&pc->blocked_user_mutex);
+  spin_unlock(&pc->blocked_user_lock);
 
   wait_for_completion_interruptible(&pc->unblock_ready);
 
   return 0;
-}
-
-
-int create_thread(struct periodic_conf * pc){
-  if (pc->callback_helper_thread_id > 0){
-    return 1;
-  }
-
-  pc->callback_helper_thread_id = kthread_run(callback_helper_thread,
-					      pc, "callback_helper");
-  if (IS_ERR(pc->callback_helper_thread_id)) {
-    printk("Impossible to create thread");
-    return 1;
-  }
-
-  return 0;
-}
-
-void delete_helper_thread(struct periodic_conf * pc){
-  pc->should_stop = true;
-  complete(&pc->timer_elapsed);
-  kthread_stop(pc->callback_helper_thread_id);
 }
 
 void init_periodic_conf(struct periodic_conf * pc){
@@ -124,14 +68,11 @@ void init_periodic_conf(struct periodic_conf * pc){
   if (!pc) return ;
   
   pc->timeout_ms = 0;
-  mutex_init(&pc->blocked_user_mutex);
+  spin_lock_init(&pc->blocked_user_lock);
   init_completion(&pc->unblock_ready);
-  init_completion(&pc->timer_elapsed);
   pc->blocked_user = false;
-  pc->callback_helper_thread_id = NULL;
   pc->running = false;
   mutex_init(&pc->running_mutex);
-  pc->should_stop = false;
 }
 
 void * create_periodic_conf(){
@@ -147,7 +88,6 @@ void delete_periodic_conf(struct periodic_conf * pc){
   if (!pc) {
     return;
   }
-  delete_helper_thread(pc);
   kfree(pc);
 }
 
@@ -166,7 +106,7 @@ int start_cycling(struct periodic_conf * pc){
     return -3;
   }
 
-  timer_setup(&pc->tl, quick_periodic_callback, 0);
+  timer_setup(&pc->tl, timer_hard_isr, 0);
   mod_timer(&pc->tl, jiffies + msecs_to_jiffies(pc->timeout_ms));
 
   pc->running  = true;
