@@ -1,35 +1,31 @@
 #include "periodic.h"
-#include <linux/timer.h>
-#include <linux/jiffies.h>
+#include <linux/hrtimer.h>
+#include <linux/time.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <linux/spinlock_types.h>
 #include <linux/kernel.h>
-#include <linux/kthread.h>
 #include <linux/slab.h>
-//#include <linux/sched/signal.h>
 
 #define PRINT_STAT 1
 
 struct periodic_conf {
-  unsigned long timeout_ms;
-  struct timer_list tl;
-  //struct completion timer_elapsed;
+  ktime_t timeout;
+  struct hrtimer hrt;
   struct completion unblock_ready;
   bool blocked_user;
   spinlock_t blocked_user_lock;
-  //struct task_struct * callback_helper_thread_id;
   bool running;
   struct mutex running_mutex;
 };
 
-/* timer_hard_isr() - callback handler for timer
- */
-void timer_hard_isr(struct timer_list * pc_ptr){
+/* hrtimer_hard_isr() - callback handler for timer
+*/
+enum hrtimer_restart timer_hard_isr(struct hrtimer * hrtimer_ptr){
   struct periodic_conf * pc;
-  pc = container_of(pc_ptr, struct periodic_conf, tl);
+  pc = container_of(hrtimer_ptr, struct periodic_conf, hrt);
 
-  mod_timer(pc_ptr, jiffies + msecs_to_jiffies(pc->timeout_ms));
+  hrtimer_forward_now(hrtimer_ptr, pc->timeout);
 
   spin_lock_irq(&pc->blocked_user_lock);
   if (pc->blocked_user){
@@ -41,6 +37,8 @@ void timer_hard_isr(struct timer_list * pc_ptr){
     spin_unlock_irq(&pc->blocked_user_lock);
     printk("Missed timeout!");
   }
+
+  return HRTIMER_RESTART;
 }
 
 /* wait_for_timeout() - blocks until timer elapses
@@ -67,7 +65,7 @@ void init_periodic_conf(struct periodic_conf * pc){
 
   if (!pc) return ;
   
-  pc->timeout_ms = 0;
+  pc->timeout = 0;
   spin_lock_init(&pc->blocked_user_lock);
   init_completion(&pc->unblock_ready);
   pc->blocked_user = false;
@@ -101,13 +99,14 @@ int start_cycling(struct periodic_conf * pc){
     return -2;
   }
 
-  if (pc->timeout_ms == 0){
+  if (pc->timeout == 0){
     mutex_unlock(&pc->running_mutex);
     return -3;
   }
 
-  timer_setup(&pc->tl, timer_hard_isr, 0);
-  mod_timer(&pc->tl, jiffies + msecs_to_jiffies(pc->timeout_ms));
+  hrtimer_init(&pc->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+  pc->hrt.function = timer_hard_isr ;
+  hrtimer_start(&pc->hrt, pc->timeout, HRTIMER_MODE_REL);
 
   pc->running  = true;
   mutex_unlock(&pc->running_mutex);
@@ -125,7 +124,7 @@ int stop_cycling(struct periodic_conf * pc){
     return -2;
   }
 
-  del_timer(&pc->tl);
+  hrtimer_cancel(&pc->hrt);
   pc->running = false;
   mutex_unlock(&pc->running_mutex);
   
@@ -148,7 +147,7 @@ int periodic_conf_set_timeout_ms(struct periodic_conf * pc,
     return -3;
   }
 
-  pc->timeout_ms = tms;
+  pc->timeout = ktime_set(tms/1000, (tms % 1000)*1000000);
 
   mutex_unlock(&pc->running_mutex);
   return 0;
@@ -158,7 +157,7 @@ int periodic_conf_set_timeout_ms(struct periodic_conf * pc,
 unsigned long periodic_conf_get_timeout_ms(struct periodic_conf * pc){
   if (! pc) return 0;
 
-  return pc->timeout_ms;
+  return pc->timeout/1000000;
 }
 
 

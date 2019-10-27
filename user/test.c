@@ -24,10 +24,10 @@ int main(void){
 
   timeout = 10UL;
   retval = ioctl(fd, TIMEOUT_SET, timeout);
-  printf("Return value of ioctl() call with set is %d\n", retval);
+  printf("Return value of ioctl() call with set is %ld\n", retval);
 
   retval = ioctl(fd, TIMEOUT_GET, NULL);
-  printf("Return value of ioctl() call with get is %d\n", retval);
+  printf("Return value of ioctl() call with get is %ld\n", retval);
 
   retval = ioctl(fd, START);
   printf("Started\n");
@@ -36,7 +36,7 @@ int main(void){
   retval = ioctl( fd, BLOCK);
   gettimeofday( &after, NULL);
   printf( "Delay 0: %ld us\n", (long int)(after.tv_usec - before.tv_usec) + (long int)(after.tv_sec - before.tv_sec)*1000000);
-  printf( "Return value of ioctl() call with block is %d\n", retval);
+  printf( "Return value of ioctl() call with block is %ld\n", retval);
   printf( "Doing some elaboration: 5+3 is %d\n", 5+3 );
 
   before = after;
@@ -69,7 +69,7 @@ int main(void){
   printf( "Delay 5: %ld us\n", (long int)(after.tv_usec - before.tv_usec) + (long int)(after.tv_sec - before.tv_sec)*1000000);
 
   retval = ioctl( fd, STOP );
-  printf("Retval of STOP is %d\n", retval);
+  printf("Retval of STOP is %ld\n", retval);
   
   
 

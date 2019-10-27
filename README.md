@@ -56,33 +56,25 @@ by calling `delete_periodic_conf()` (defined in `module/periodic.c`)
 on the `private_data` pointer of the `file` structure.
 
 ### Core operation
-For each process a kthread is started. The code of the kthread is the function
-`callback_helper_thread()`. It can be started
-by `create_thread(struct periodic_conf *pc)`. This is done every time a process
-opens `kpdev`.
-
-This kthread cyclically blocks until the timer callback
-"completes" `timer_elapsed` (stored in `periodic_conf` structure).
-Then checks whether the user thread is blocked.
-If so the kthread "completes" `unblock_ready`
-(stored in `periodic_conf` structure) in order to unblock it.
-
-A user thread can block until the kthread "completes" `unblock_ready`
-by calling `wait_for_timeout()` (`module/periodic.c`). This is indirectly done
-by calling `ioctl(<file-descriptor>, BLOCK)` from a user space application.
-
+The module exploits the high resolution timers.
 The timer configuration is saved in the `periodic_conf` structure.
-The timeout can be set by `periodic_conf_set_timeout()` and read by
-`periodic_conf_get_timeout()`. This is indirectly done by calling
+The timeout can be set by `periodic_conf_set_timeout_ms()` and read by
+`periodic_conf_get_timeout_ms()`. This is indirectly done by calling
 `ioctl(<fd>, TIMEOUT_SET, <timeout>)` and `ioctl(<fd>, TIMEOUT_GET)` respectively
 from the user space application.
 
 The function `start_cycling()` activates the timer
-and sets the `quick_periodic_callback()` function as the callback.
+and sets the `hrtimer_hard_isr()` function as the callback.
 This callbak will postpone the timer in order to be periodically called.
-It will then "complete" `timer_elapsed` so that the helper thread
-`callback_helper_thread()` can possibly unblock the user process in turn,
-as described above. The function `stop_cycling()` stops the timer.
+Then it checks whether the user thread is blocked.
+If so the callback "completes" `unblock_ready`
+(stored in `periodic_conf` structure) in order to unblock the waiting user.
+The function `stop_cycling()` stops the timer.
+
+A user thread can block until the callback "completes" `unblock_ready`
+by calling `wait_for_timeout()` (`module/periodic.c`). This is indirectly done
+by calling `ioctl(<file-descriptor>, BLOCK)` from a user space application.
+
 
 From a user space application, the timer must be started and stopped
 by calling `ioctl(<fd>, START)` and `ioctl(<fd>, STOP)` respectively.

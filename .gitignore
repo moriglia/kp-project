@@ -16,3 +16,6 @@ TinyFS/
 user/test
 user/test2
 append_fs/
+
+*.swp
+

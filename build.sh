@@ -26,10 +26,12 @@ cd ..
 mkdir -p append_fs/modules
 mkdir -p append_fs/home/myself
 
+wait 
+
 if [ -e module/kp.ko ] ; then 
     cp module/kp.ko append_fs/modules/ ;
 else
-    echo Impossible kernel module compilation failed;
+    echo Kernel module compilation failed;
     exit 1 ;
 fi
 

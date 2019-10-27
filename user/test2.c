@@ -29,7 +29,7 @@
     tmp = n;								\
     printf("Iterations remaining %d\tDelay = %ldus\n",			\
 	   n - 1, evaluate_delta( time1 , time2 ) );			\
-    for ( ; tmp > 0 ; ) printf( "[%d] " , tmp-- );			\
+    for ( ; tmp > 0 ; ) printf( "[%ld] " , tmp-- );			\
     printf("\n");							\
     time2 = time1 ;							\
   } while (0)
@@ -63,7 +63,7 @@ int main(int argc, char ** argv) {
   }
 
   // setting timer:
-  printf("Setting timer to %d\n", timeout);
+  printf("Setting timer to %ld\n", timeout);
   res = ioctl(fd, TIMEOUT_SET, timeout);
   if ( res == -1 ) {
     printf("Timer not set!\n");
