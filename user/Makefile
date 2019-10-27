@@ -1,12 +1,13 @@
 KERNEL_INCLUDE ?= /lib/modules/`uname -r`/build/include
 
-all: test test2
+apps=$(patsubst %.c,%,$(shell ls *.c))
 
-test:
-	gcc -o test -isystem $(KERNEL_INCLUDE) test.c
 
-test2:
-	gcc -o test2 -isystem $(KERNEL_INCLUDE) test2.c
+all: $(apps)
+
+%: %.c
+	gcc -o $@ -isystem $(KERNEL_INCLUDE) $(shell if grep -q pthread.h $< ; then echo -pthread ; fi) $< 
+
 
 clean:
-	rm -f test test2
+	rm -f $(apps)

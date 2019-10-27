@@ -6,50 +6,26 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "../module/device.h"
+#include "utils.h"
 
-/* check_print_usage(condition)
- * if condition is true,  then continue
- * if condition is false, then print usage and return;
- */
-#define check_print_usage(condition)					\
-  do {									\
-    if (!(condition)) {							\
-      printf("Usage: %s [millis [iterations]]\nmillis\t\tbase ten number of milliseconds (unsigned long)\niterations\tbase ten number of iterations\n", argv[0]); \
-      return 0;								\
-    }									\
-  } while (0)
-
-#define evaluate_delta( time1 , time2 )			\
-  (long int)(time1.tv_usec - time2.tv_usec) +		\
-  1000000 * (long int)(time1.tv_sec - time2.tv_sec)
-
-#define do_something( n , tmp , time1 , time2 )				\
-  do {									\
-    gettimeofday(&time1 , NULL);					\
-    tmp = n;								\
-    printf("Iterations remaining %d\tDelay = %ldus\n",			\
-	   n - 1, evaluate_delta( time1 , time2 ) );			\
-    for ( ; tmp > 0 ; ) printf( "[%ld] " , tmp-- );			\
-    printf("\n");							\
-    time2 = time1 ;							\
-  } while (0)
+#define USAGE_MESSAGE "Usage: %s [millis [iterations]]\nmillis\t\tbase ten number of milliseconds (unsigned long)\niterations\tbase ten number of iterations\n"
 
 int main(int argc, char ** argv) {
-  int fd, iterations;
+  int fd, iterations, tmp;
   unsigned long timeout;
   long res;
 
   struct timeval t1, t2;
 
   // check for timeout param
-  check_print_usage( argc > 1 );
+  check_print_usage( argc > 1 , USAGE_MESSAGE);
   timeout = strtoul(argv[1], NULL, 10);
-  check_print_usage( timeout!=0 );
+  check_print_usage( timeout!=0 , USAGE_MESSAGE);
 
   // check for iteration number
   if ( argc > 2 ) {
     iterations = strtol( argv[2], NULL, 10 );
-    check_print_usage(iterations!=0);
+    check_print_usage(iterations!=0, USAGE_MESSAGE);
   } else {
     iterations = 10;
   }
@@ -72,13 +48,13 @@ int main(int argc, char ** argv) {
 
   ioctl(fd, START);
 
-  gettimeofday( &t2 , NULL );
+  gettimeofday( &t1 , NULL );
 
   for (; iterations > 0; --iterations) {
     ioctl(fd, BLOCK);
 
     /* do some operatios */
-    do_something(iterations, res, t1, t2);
+    do_something(iterations, tmp, t2, t1);
   }
 
   ioctl(fd, STOP);

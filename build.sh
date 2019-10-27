@@ -35,17 +35,12 @@ else
     exit 1 ;
 fi
 
-if [ -e user/test ] ; then
-    cp user/test  append_fs/home/myself/ ;
-else
-    echo "'test' compilation failed" ;
-fi
-
-if [ -e user/test2 ] ; then
-    cp user/test2 append_fs/home/myself/
-else
-    echo "'test2' compilation failed";
-fi
+#copy user applications to user home folder
+for file in user/* ; do
+    if [ -x $file ] ; then
+	cp $file append_fs/home/myself/
+    fi
+done
 
 # create install script
 echo "#!/bin/sh" > append_fs/home/myself/install_module.sh
