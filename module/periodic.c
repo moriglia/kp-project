@@ -31,7 +31,7 @@ void timer_hard_isr(struct timer_list * pc_ptr){
 
   mod_timer(pc_ptr, jiffies + msecs_to_jiffies(pc->timeout_ms));
 
-  spin_lock_irq(&blocked_user_lock);
+  spin_lock_irq(&pc->blocked_user_lock);
   if (pc->blocked_user){
     // complete only if blocked user thread is present
     complete(&pc->unblock_ready);

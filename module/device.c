@@ -18,8 +18,7 @@ static struct miscdevice kp_device;
 
 /* kp_dev_open() - opens misc device
  * 
- * Allocates a new periodic_conf structure (see "periodic.c")
- * Starts a new callback helper thread 
+ * Allocates a new periodic_conf structure (see "periodic.c") 
  */
 static int kp_dev_open(struct inode* in, struct file* f){
 #if VERBOSE
@@ -29,16 +28,12 @@ static int kp_dev_open(struct inode* in, struct file* f){
   if (!f->private_data) {
     return -1;
   }
-  if (create_thread(f->private_data)) {
-    delete_periodic_conf(f->private_data);
-    return -1;
-  }
   return 0;
 }
 
 /* kp_dev_release() - closes misc device
  * 
- * Deallocates the periodic_conf structure and stops callback helper thread.
+ * Deallocates the periodic_conf structure.
  */
 static int kp_dev_release(struct inode* in, struct file* f){
 #if VERBOSE
