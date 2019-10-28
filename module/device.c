@@ -24,7 +24,7 @@ static int kp_dev_open(struct inode* in, struct file* f){
 #if VERBOSE
   printk("Opening device");
 #endif
-  f->private_data = create_periodic_conf();
+  f->private_data = create_periodic_conf_list();
   if (!f->private_data) {
     return -1;
   }
@@ -39,7 +39,7 @@ static int kp_dev_release(struct inode* in, struct file* f){
 #if VERBOSE
   printk("Closing device");
 #endif
-  delete_periodic_conf(f->private_data);
+  delete_periodic_conf_list(f->private_data);
   f->private_data = NULL;
   return 0;
 }
