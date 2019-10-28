@@ -1,21 +1,13 @@
-**/*~
-**/*.gz
-BuildCore/
-TinyFS/
-**/*.out
-**/*.txt
-**/*.log
-**/.tmp_versions/
-**/*.order
-**/*.symvers
-**/.cache.mk
-**/*.ko
-**/*.o
-**/*.cmd
-**/*.mod.c
-user/test
-user/test2
-append_fs/
+# no file ...
+*
 
-*.swp
+# ... except ...
 
+# headers and source code
+!**/*.[ch]
+
+# makefiles
+!**/[Mm]akefile
+
+# shell scripts
+!**/*.sh
