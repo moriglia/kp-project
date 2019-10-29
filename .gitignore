@@ -4,10 +4,14 @@
 # ... except ...
 
 # headers and source code
-!**/*.[ch]
+!user/
+!module/
+!*.[ch]
+
+*.mod.c
 
 # makefiles
 !**/[Mm]akefile
 
 # shell scripts
-!**/*.sh
+!*.sh
