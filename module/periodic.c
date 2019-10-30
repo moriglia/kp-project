@@ -19,6 +19,29 @@ struct periodic_conf {
   struct completion unblock_ready;
   bool blocked_user;
   spinlock_t blocked_user_lock;
+  /* Is spinlock_t blocked_user_lock necessary?
+   *
+   * Imagine that no spinlock protects the boolean variable
+   * blocked_user. The timer ISR finds that it is true, then 
+   * "completes" to unblock the user space task. 
+   *
+   * What could happen if the user space application immediatly
+   * called ioctl(fd, BLOCK)? It could happend that it set 
+   * blocked_user to true, just before the the timer ISR sets
+   * it to false. In this case it will be overwritten: the 
+   * timer ISR will see blocked_user to false forever and the
+   * blocked task will never be woken up again.
+   *
+   * Of course this scenario is not realistic at all since the 
+   * call stack from wait_for_completion() up to the application
+   * and back from the application ioctl(fd, BLOCK) call down to
+   * the wait_for_timeout() operation of setting blocked_user to 
+   * true takes much longer then the time it takes the timer ISR
+   * to reach the statement pc->blocked_user = false after 
+   * "completing".
+   *
+   * I'm keeping it for affection. 
+   */
   
   bool running;
   struct mutex running_mutex;
@@ -117,14 +140,14 @@ enum hrtimer_restart timer_hard_isr(struct hrtimer * hrtimer_ptr){
 
   hrtimer_forward_now(hrtimer_ptr, pc->timeout);
 
-  spin_lock_irq(&pc->blocked_user_lock);
+  spin_lock(&pc->blocked_user_lock);
   if (pc->blocked_user){
     // complete only if blocked user thread is present
     complete(&pc->unblock_ready);
     pc->blocked_user = false;
-    spin_unlock_irq(&pc->blocked_user_lock);
+    spin_unlock(&pc->blocked_user_lock);
   } else {
-    spin_unlock_irq(&pc->blocked_user_lock);
+    spin_unlock(&pc->blocked_user_lock);
     printk("Missed timeout!");
   }
 
@@ -144,9 +167,9 @@ int __wait_for_timeout(struct periodic_conf * pc){
   if (!pc->running)
     return -2;
   
-  spin_lock(&pc->blocked_user_lock);
+  spin_lock_irq(&pc->blocked_user_lock);
   pc->blocked_user = true;
-  spin_unlock(&pc->blocked_user_lock);
+  spin_unlock_irq(&pc->blocked_user_lock);
 
   wait_for_completion(&pc->unblock_ready);
 

@@ -32,27 +32,33 @@ Test through a user task (for example, launching the `test` user program 3 times
 ```
 The `test` program opens `/dev/kpdev` device, then uses `ioctl()` to set the timeout, read the timeout back and block until the next "deadline".
 
-`test2` program lets the user specify the timeout in millisecond and the number of iterations to repeat some operations (printing something to the `stdout`):
+`test2` program lets the user specify the timeout in milliseconds and the number of iterations to repeat some operations (printing something to the `stdout`):
 ```bash
 ./test2 [timeout-milliseconds [iteration-cunt]]
 ```
 This program opens the `/dev/kpdev` device. Then calls `ioctl()` multiple times to set a timeout, start the timer and block. The timer will wake up the process at (almost) periodical intervals. (An overhead of about or more than 1 ms is observed).
 
+`test_multithread_reopen` must be called without arguments and does what the other test programs do, but in multiple threads.
+Since they reopen the device, the fact that they are not different processes but different threads does not affect the result.
+
+`test_multithread_shared_fd` is almost the same as the previous test program, but the same file descriptor is used, so the distinction
+of the caller of the driver functions is delegated to the driver itself. It will store the pid of the thread across different calls.
+
 ## Internal operation
 
 ### State consistency
-Since multiple processes can open `kpdev` simultaneously, a data structure
-must be stored for each process to keep the state consistency
-until the next operation the process performs on `kpdev`. Hence a structure
+Since multiple threads can open and invoke ioctl on `kpdev` simultaneously, a data structure
+must be stored for each thread to keep the state consistency
+until the next operation the thread performs on `kpdev`. Hence a structure
 `struct periodic_conf` (`module/periodic.c`) is allocated
-(`create_periodic_conf()`) and pointed to
-by the `private_data` field of the `struct file * f`. It is created
-every time a process opens the device
-(function `int kp_dev_open(struct inode *in, struct file *f)`in `module/device.c`).
+(`create_periodic_conf()`) and put in a list pointed
+by the `private_data` field of the `struct file * f`. An empty list is created
+every time a thread opens the device, while the periodic configuration is created 
+every time a process sets his own timeout for the first time.
 
 When the process closes the device, the saved structure must be deallocated:
 this is done by `kp_dev_release()` function (`module/device.c`)
-by calling `delete_periodic_conf()` (defined in `module/periodic.c`)
+by calling `delete_periodic_conf_list()` (defined in `module/periodic.c`)
 on the `private_data` pointer of the `file` structure.
 
 ### Core operation
